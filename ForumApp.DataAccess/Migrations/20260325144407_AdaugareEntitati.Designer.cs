@@ -4,6 +4,7 @@ using ForumApp.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ForumApp.DataAccess.Migrations
 {
     [DbContext(typeof(ForumDbContext))]
-    partial class ForumDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260325144407_AdaugareEntitati")]
+    partial class AdaugareEntitati
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -420,7 +423,7 @@ namespace ForumApp.DataAccess.Migrations
                     b.HasOne("ForumApp.Domain.Entities.User.UserData", "Author")
                         .WithMany("Comments")
                         .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("ForumApp.Domain.Entities.Comment.CommentData", "ParentComment")
@@ -445,7 +448,7 @@ namespace ForumApp.DataAccess.Migrations
                     b.HasOne("ForumApp.Domain.Entities.User.UserData", "Author")
                         .WithMany()
                         .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("ForumApp.Domain.Entities.Post.PostData", "Post")
