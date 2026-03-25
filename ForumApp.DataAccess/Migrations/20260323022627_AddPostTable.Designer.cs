@@ -4,6 +4,7 @@ using ForumApp.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ForumApp.DataAccess.Migrations
 {
     [DbContext(typeof(ForumDbContext))]
-    partial class ForumDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260323022627_AddPostTable")]
+    partial class AddPostTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,44 +24,6 @@ namespace ForumApp.DataAccess.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("ForumApp.Domain.Entities.Comment.CommentData", b =>
-                {
-                    b.Property<int>("ID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ID"));
-
-                    b.Property<int>("AuthorId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("ParentCommentId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PostId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Votes")
-                        .HasColumnType("int");
-
-                    b.HasKey("ID");
-
-                    b.HasIndex("AuthorId");
-
-                    b.HasIndex("ParentCommentId");
-
-                    b.HasIndex("PostId");
-
-                    b.ToTable("Comments");
-                });
 
             modelBuilder.Entity("ForumApp.Domain.Entities.Community.CommunityData", b =>
                 {
@@ -105,7 +70,7 @@ namespace ForumApp.DataAccess.Migrations
                     b.ToTable("Communities");
                 });
 
-            modelBuilder.Entity("ForumApp.Domain.Entities.Post.PostData", b =>
+            modelBuilder.Entity("ForumApp.Domain.Entities.Post.Post", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -213,33 +178,7 @@ namespace ForumApp.DataAccess.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("ForumApp.Domain.Entities.Comment.CommentData", b =>
-                {
-                    b.HasOne("ForumApp.Domain.Entities.User.UserData", "Author")
-                        .WithMany("Comments")
-                        .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ForumApp.Domain.Entities.Comment.CommentData", "ParentComment")
-                        .WithMany("Replies")
-                        .HasForeignKey("ParentCommentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("ForumApp.Domain.Entities.Post.PostData", "Post")
-                        .WithMany("Comments")
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Author");
-
-                    b.Navigation("ParentComment");
-
-                    b.Navigation("Post");
-                });
-
-            modelBuilder.Entity("ForumApp.Domain.Entities.Post.PostData", b =>
+            modelBuilder.Entity("ForumApp.Domain.Entities.Post.Post", b =>
                 {
                     b.HasOne("ForumApp.Domain.Entities.User.UserData", "Author")
                         .WithMany("Posts")
@@ -258,25 +197,13 @@ namespace ForumApp.DataAccess.Migrations
                     b.Navigation("Community");
                 });
 
-            modelBuilder.Entity("ForumApp.Domain.Entities.Comment.CommentData", b =>
-                {
-                    b.Navigation("Replies");
-                });
-
             modelBuilder.Entity("ForumApp.Domain.Entities.Community.CommunityData", b =>
                 {
                     b.Navigation("Posts");
                 });
 
-            modelBuilder.Entity("ForumApp.Domain.Entities.Post.PostData", b =>
-                {
-                    b.Navigation("Comments");
-                });
-
             modelBuilder.Entity("ForumApp.Domain.Entities.User.UserData", b =>
                 {
-                    b.Navigation("Comments");
-
                     b.Navigation("Posts");
                 });
 #pragma warning restore 612, 618
