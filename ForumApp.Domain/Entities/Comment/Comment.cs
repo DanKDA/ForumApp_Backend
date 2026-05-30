@@ -1,5 +1,8 @@
 using ForumApp.Domain.Entities.User;
 using ForumApp.Domain.Entities.Post;
+using ForumApp.Domain.Entities.Notification;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 
 namespace ForumApp.Domain.Entities.Comment
@@ -7,8 +10,15 @@ namespace ForumApp.Domain.Entities.Comment
     public class CommentData
 
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int ID { get; set; }
+
+        [Required]
+        [StringLength(1000)]
         public string Body { get; set; } = string.Empty;
+
+
         public int Votes { get; set; }
         public DateTime CreatedAt { get; set; }
 
@@ -29,6 +39,8 @@ namespace ForumApp.Domain.Entities.Comment
         // Comentariile copil (reply-urile la acest comentariu)
         public ICollection<CommentData> Replies { get; set; } = new List<CommentData>();
 
+        // Relatia cu Notification: (one to many)
+        public ICollection<NotificationData> Notifications { get; set; } = new List<Notification.NotificationData>();
 
     }
 }

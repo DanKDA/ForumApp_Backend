@@ -2,29 +2,57 @@ using ForumApp.Domain.Entities.Post;
 using ForumApp.Domain.Entities.Comment;
 using ForumApp.Domain.Entities.Report;
 using ForumApp.Domain.Entities.Notification;
+using ForumApp.Domain.Entities.CommunityMember;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ForumApp.Domain.Entities.User
-
-
 {
 
     public class UserData
     {
 
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int ID { get; set; }
+
+        [Required]
+        [StringLength(50, MinimumLength = 6)]
         public string UserName { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(50)]
+        [DataType(DataType.EmailAddress)]
         public string Email { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(256)]
         public string PasswordHash { get; set; } = string.Empty;
+
+        [StringLength(200)]
         public string? Bio { get; set; }
-        public int Karma { get; set; }
+
+        [StringLength(20)]
         public string Role { get; set; } = string.Empty;
+
+        [StringLength(20)]
         public string ProfileVisibility { get; set; } = string.Empty;
-        public bool ShowActivity { get; set; }
-        public bool EmailNotifications { get; set; }
-        public bool PushNotifications { get; set; }
+
+        [StringLength(20)]
         public string Theme { get; set; } = string.Empty;
+
+        [StringLength(10)]
         public string Language { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
+
+        public string? AvatarUrl { get; set; }
+
+        public int Karma { get; set; } = 0;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // Refresh token pentru sesiuni persistente (React frontend)
+        public string? RefreshToken { get; set; }
+        public DateTime? RefreshTokenExpiry { get; set; }
 
 
         // Relatia cu Post: (one to many)
@@ -35,12 +63,11 @@ namespace ForumApp.Domain.Entities.User
 
         // Relatia cu Report: (one to many)
         public ICollection<ReportData> Reports { get; set; } = new List<Report.ReportData>();
-    
+
         // Relatia cu Notification: (one to many)
         public ICollection<NotificationData> Notifications { get; set; } = new List<NotificationData>();
+
+        // Relatia cu CommunityMember: (one to many)
+        public ICollection<CommunityMemberData> Communities { get; set; } = new List<CommunityMemberData>();
     }
-
-
-
-
 }

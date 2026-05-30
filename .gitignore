@@ -1,4 +1,4 @@
-# Build outputs
+#Build outputs
 bin/
 obj/
 [Dd]ebug/
@@ -6,14 +6,14 @@ obj/
 x64/
 x86/
 
-# .NET generated binaries and runtime files
+#.NET generated binaries and runtime files
 *.dll
 *.exe
 *.pdb
 *.deps.json
 *.runtimeconfig.json
 
-# IDE and user-specific files
+#IDE and user-specific files
 .vs/
 .vscode/
 *.user
@@ -21,13 +21,17 @@ x86/
 *.cache
 *.csproj.user
 *.DotSettings.user
+*.lscache
 
-# NuGet and packages
+#NuGet and packages
 packages/
 *.nupkg
 *.snupkg
 
-# Logs and temp files
+#Logs and temp files
 *.log
 *.tmp
 *.temp
+
+ForumApp.DataAccess/Migrations/
+ForumApp.API/wwwroot/uploads/
