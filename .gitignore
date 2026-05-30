@@ -33,4 +33,9 @@ packages/
 *.temp
 
 ForumApp.DataAccess/Migrations/
-ForumApp.API/wwwroot/uploads/
+ForumApp.API/wwwroot/
+ForumApp.API/ForumApp.API.csproj.lscache
+
+ForumApp.BusinessLayer/ForumApp.BusinessLayer.csproj.lscache
+ForumApp.DataAccess/ForumApp.DataAccess.csproj.lscache
+ForumApp.Domain/ForumApp.Domain.csproj.lscache
