@@ -263,11 +263,15 @@ namespace ForumApp.BusinessLayer.Core
             if (community.Type.ToLower() == "private")
                 return new ActionResponse { IsSuccess = false, Message = "This is a private community. You can only be added by the owner or a moderator." };
 
-            var alreadyMember = await _context.CommunityMembers
-                .AnyAsync(m => m.CommunityId == communityId && m.UserId == userId, ct);
+            var existingMember = await _context.CommunityMembers
+                .FirstOrDefaultAsync(m => m.CommunityId == communityId && m.UserId == userId, ct);
 
-            if (alreadyMember)
+            if (existingMember != null)
+            {
+                if (existingMember.IsBanned)
+                    return new ActionResponse { IsSuccess = false, Message = "You are banned from this community and cannot rejoin." };
                 return new ActionResponse { IsSuccess = false, Message = "You are already a member of this community." };
+            }
 
             var membership = new CommunityMemberData
             {
@@ -491,6 +495,22 @@ namespace ForumApp.BusinessLayer.Core
 
             try { await _context.SaveChangesAsync(ct); }
             catch (DbUpdateException) { return new ActionResponse { IsSuccess = false, Message = "Failed to kick member." }; }
+
+            try
+            {
+                var communitySlug = community?.Slug ?? string.Empty;
+                await _notificationActions.CreateAndSendAsync(
+                    targetUserId,
+                    NotificationType.KickedFromCommunity,
+                    $"You have been kicked from c/{communitySlug}.",
+                    requestingUserId,
+                    null,
+                    null,
+                    communitySlug,
+                    null,
+                    ct);
+            }
+            catch { }
 
             return new ActionResponse { IsSuccess = true, Message = "Member kicked from community." };
         }

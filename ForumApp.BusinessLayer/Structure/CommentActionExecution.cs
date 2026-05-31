@@ -17,8 +17,8 @@ namespace ForumApp.BusinessLayer.Structure
         public Task<IReadOnlyList<CommentResponseDto>> GetCommentsByPostAsync(int postId, int? requestingUserId = null, CancellationToken ct = default)
             => GetCommentsByPostExecution(postId, requestingUserId, ct);
 
-        public Task<IReadOnlyList<CommentResponseDto>> GetCommentsByUserAsync(int userId, CancellationToken ct = default)
-            => GetCommentsByUserExecution(userId, ct);
+        public Task<IReadOnlyList<CommentResponseDto>> GetCommentsByUserAsync(int userId, int? requestingUserId = null, CancellationToken ct = default)
+            => GetCommentsByUserExecution(userId, requestingUserId, ct);
 
         public Task<CommentResponseDto?> CreateCommentAsync(CommentCreateDto commentData, int authorId, CancellationToken ct = default)
             => CreateCommentExecution(commentData, authorId, ct);

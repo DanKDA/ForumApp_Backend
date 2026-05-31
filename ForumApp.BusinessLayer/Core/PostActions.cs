@@ -35,7 +35,9 @@ namespace ForumApp.BusinessLayer.Core
             IsPinned = post.IsPinned,
             CreatedAt = post.CreatedAt,
             AuthorName = post.Author.UserName,
-            CommunitySlug = post.Community.Slug
+            AuthorAvatarUrl = post.Author.AvatarUrl,
+            CommunitySlug = post.Community.Slug,
+            CommunityAvatarUrl = post.Community.AvatarUrl
         };
 
         private static (int Page, int PageSize) NormalizePagination(int page, int pageSize)
@@ -228,16 +230,32 @@ namespace ForumApp.BusinessLayer.Core
             };
         }
 
-        internal async Task<PostBatchResponseDto> GetPostsByUserExecution(int userId, int page = 1, int pageSize = 15, CancellationToken ct = default)
+        internal async Task<PostBatchResponseDto> GetPostsByUserExecution(int userId, int page = 1, int pageSize = 15, int? requestingUserId = null, CancellationToken ct = default)
         {
             var (normalizedPage, normalizedPageSize) = NormalizePagination(page, pageSize);
             var skip = (normalizedPage - 1) * normalizedPageSize;
 
-            var batch = await _context.Posts
+            var query = _context.Posts
                 .AsNoTracking()
                 .Include(p => p.Author)
                 .Include(p => p.Community)
-                .Where(p => p.AuthorId == userId && p.Community.Type.ToLower() != "private")
+                .Where(p => p.AuthorId == userId);
+
+            if (requestingUserId.HasValue)
+            {
+                query = query.Where(p =>
+                    p.Community.Type.ToLower() != "private" ||
+                    _context.CommunityMembers.Any(m =>
+                        m.CommunityId == p.CommunityId &&
+                        m.UserId == requestingUserId.Value &&
+                        !m.IsBanned));
+            }
+            else
+            {
+                query = query.Where(p => p.Community.Type.ToLower() != "private");
+            }
+
+            var batch = await query
                 .OrderByDescending(p => p.CreatedAt)
                 .ThenByDescending(p => p.Id)
                 .Skip(skip)

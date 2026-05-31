@@ -69,11 +69,27 @@ namespace ForumApp.BusinessLayer.Core
             return comments.Select(MapToDto).ToList().AsReadOnly();
         }
 
-        internal async Task<IReadOnlyList<CommentResponseDto>> GetCommentsByUserExecution(int userId, CancellationToken ct = default)
+        internal async Task<IReadOnlyList<CommentResponseDto>> GetCommentsByUserExecution(int userId, int? requestingUserId = null, CancellationToken ct = default)
         {
-            var comments = await _context.Comments
+            var query = _context.Comments
                 .Include(c => c.Author)
-                .Where(c => c.AuthorId == userId && c.Post.Community.Type.ToLower() != "private")
+                .Where(c => c.AuthorId == userId);
+
+            if (requestingUserId.HasValue)
+            {
+                query = query.Where(c =>
+                    c.Post.Community.Type.ToLower() != "private" ||
+                    _context.CommunityMembers.Any(m =>
+                        m.CommunityId == c.Post.CommunityId &&
+                        m.UserId == requestingUserId.Value &&
+                        !m.IsBanned));
+            }
+            else
+            {
+                query = query.Where(c => c.Post.Community.Type.ToLower() != "private");
+            }
+
+            var comments = await query
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync(ct);
 
@@ -235,23 +251,47 @@ namespace ForumApp.BusinessLayer.Core
                 communitySlug = comment.Post.Community?.Slug;
             }
 
-            var commentNotifications = await _context.Notifications
-                .Where(n => n.CommentId == commentId)
-                .ToListAsync(ct);
-            _context.Notifications.RemoveRange(commentNotifications);
+            var hasReplies = await _context.Comments
+                .AnyAsync(c => c.ParentCommentId == commentId, ct);
 
-            if (comment.Post != null && comment.Post.CommentsCount > 0)
-                comment.Post.CommentsCount--;
-
-            _context.Comments.Remove(comment);
-
-            try
+            if (hasReplies)
             {
-                await _context.SaveChangesAsync(ct);
+                comment.Body = "[deleted]";
+
+                var commentNotifications = await _context.Notifications
+                    .Where(n => n.CommentId == commentId)
+                    .ToListAsync(ct);
+                _context.Notifications.RemoveRange(commentNotifications);
+
+                try
+                {
+                    await _context.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException)
+                {
+                    return new ActionResponse { IsSuccess = false, Message = "Failed to delete comment." };
+                }
             }
-            catch (DbUpdateException)
+            else
             {
-                return new ActionResponse { IsSuccess = false, Message = "Failed to delete comment." };
+                var commentNotifications = await _context.Notifications
+                    .Where(n => n.CommentId == commentId)
+                    .ToListAsync(ct);
+                _context.Notifications.RemoveRange(commentNotifications);
+
+                if (comment.Post != null && comment.Post.CommentsCount > 0)
+                    comment.Post.CommentsCount--;
+
+                _context.Comments.Remove(comment);
+
+                try
+                {
+                    await _context.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException)
+                {
+                    return new ActionResponse { IsSuccess = false, Message = "Failed to delete comment." };
+                }
             }
 
             if (isModDelete)

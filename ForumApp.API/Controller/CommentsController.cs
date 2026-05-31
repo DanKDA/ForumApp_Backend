@@ -42,7 +42,8 @@ namespace ForumApp.API.Controller
         [HttpGet("user/{userId:int}")]
         public async Task<IActionResult> GetByUser(int userId, CancellationToken ct)
         {
-            var comments = await _commentService.GetCommentsByUserAsync(userId, ct);
+            int? requestingUserId = TryGetCurrentUserId();
+            var comments = await _commentService.GetCommentsByUserAsync(userId, requestingUserId, ct);
             return Ok(comments);
         }
 

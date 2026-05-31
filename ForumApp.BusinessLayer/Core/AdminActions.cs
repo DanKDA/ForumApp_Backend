@@ -23,6 +23,21 @@ namespace ForumApp.BusinessLayer.Core
             _notifications = notifications;
         }
 
+        private async Task<int> GetMainAdminIdAsync(CancellationToken ct = default)
+        {
+            return await _context.Users
+                .Where(u => u.Role == "Admin")
+                .OrderBy(u => u.ID)
+                .Select(u => u.ID)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        private async Task<bool> IsMainAdminAsync(int userId, CancellationToken ct = default)
+        {
+            var mainAdminId = await GetMainAdminIdAsync(ct);
+            return mainAdminId == userId;
+        }
+
         // ─── STATS ───────────────────────────────────────────────────────────────
 
         internal async Task<AdminStatsDto> GetStatsExecution(CancellationToken ct = default)
@@ -104,7 +119,12 @@ namespace ForumApp.BusinessLayer.Core
                 return new ActionResponse { IsSuccess = false, Message = "User not found." };
 
             if (user.Role == "Admin")
-                return new ActionResponse { IsSuccess = false, Message = "You cannot ban another administrator. Remove their admin role first." };
+            {
+                if (await IsMainAdminAsync(targetUserId, ct))
+                    return new ActionResponse { IsSuccess = false, Message = "You cannot ban the main administrator." };
+                if (!await IsMainAdminAsync(adminUserId, ct))
+                    return new ActionResponse { IsSuccess = false, Message = "Only the main administrator can ban other administrators." };
+            }
 
             user.IsBanned = true;
             user.BanReason = reason.Trim();
@@ -124,6 +144,9 @@ namespace ForumApp.BusinessLayer.Core
 
         internal async Task<ActionResponse> UnbanUserExecution(int targetUserId, int adminUserId, CancellationToken ct = default)
         {
+            if (!await IsMainAdminAsync(adminUserId, ct))
+                return new ActionResponse { IsSuccess = false, Message = "Only the main administrator can unban users." };
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.ID == targetUserId, ct);
             if (user == null)
                 return new ActionResponse { IsSuccess = false, Message = "User not found." };
@@ -152,9 +175,15 @@ namespace ForumApp.BusinessLayer.Core
             if (targetUserId == adminUserId && role != "Admin")
                 return new ActionResponse { IsSuccess = false, Message = "You cannot remove your own admin role." };
 
+            if (!await IsMainAdminAsync(adminUserId, ct))
+                return new ActionResponse { IsSuccess = false, Message = "Only the main administrator can change user roles." };
+
             var user = await _context.Users.FirstOrDefaultAsync(u => u.ID == targetUserId, ct);
             if (user == null)
                 return new ActionResponse { IsSuccess = false, Message = "User not found." };
+
+            if (await IsMainAdminAsync(targetUserId, ct) && role != "Admin")
+                return new ActionResponse { IsSuccess = false, Message = "You cannot revoke the main administrator role." };
 
             if (user.IsBanned && role == "Admin")
                 return new ActionResponse { IsSuccess = false, Message = "Unban the user before promoting them to admin." };
