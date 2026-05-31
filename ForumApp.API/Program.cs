@@ -1,4 +1,6 @@
+﻿using ForumApp.API.Hubs;
 using ForumApp.BusinessLayer.Interfaces;
+using ForumApp.API.Infrastructure;
 using ForumApp.BusinessLayer.Structure;
 using ForumApp.DataAccess;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 //  Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSignalR();
 
 //  Swagger cu suport Bearer JWT
 builder.Services.AddSwaggerGen(c =>
@@ -65,20 +68,23 @@ builder.Services.AddDbContext<ForumDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 //  Business layer services
-builder.Services.AddScoped<IPostActions, PostService>();
-builder.Services.AddScoped<ICommunityActions, CommunityService>();
-builder.Services.AddScoped<ICommentActions, CommentService>();
-builder.Services.AddScoped<IVoteActions, VoteService>();
-builder.Services.AddScoped<IDraftActions, DraftService>();
-builder.Services.AddScoped<ISavedItemActions, SavedItemService>();
-builder.Services.AddScoped<IContactActions, ContactService>();
-builder.Services.AddScoped<IReportActions, ReportService>();
-builder.Services.AddScoped<INotificationActions, NotificationService>();
+builder.Services.AddScoped<IHubNotifierAction, SignalRHubNotifier>();
+builder.Services.AddScoped<INotificationAction, NotificationActionExecution>();
+builder.Services.AddScoped<IPostAction, PostActionExecution>();
+builder.Services.AddScoped<ICommunityAction, CommunityActionExecution>();
+builder.Services.AddScoped<ICommentAction, CommentActionExecution>();
+builder.Services.AddScoped<IVoteAction, VoteActionExecution>();
+builder.Services.AddScoped<IDraftAction, DraftActionExecution>();
+builder.Services.AddScoped<ISavedItemAction, SavedItemActionExecution>();
+builder.Services.AddScoped<IContactAction, ContactActionExecution>();
+builder.Services.AddScoped<IReportAction, ReportActionExecution>();
+builder.Services.AddScoped<IAdminAction, AdminActionExecution>();
 
 //  Auth services
-builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddScoped<IUserActions, UserService>();
-builder.Services.AddScoped<IImageStorageActions, LocalImageStorageService>();
+builder.Services.AddScoped<ITokenAction, TokenActionExecution>();
+builder.Services.AddScoped<IUserAction, UserActionExecution>();
+builder.Services.AddScoped<IImageAction, ImageActionExecution>();
+builder.Services.AddScoped<IImageStorageAction, LocalImageStorageService>();
 
 //  JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -95,6 +101,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtSettings["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtSettings["Secret"]!))
+        };
+
+        // SignalR passes the JWT as a query param for WebSocket connections
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -117,5 +138,8 @@ app.UseAuthorization();
 
 //  Map controllers
 app.MapControllers();
+
+//  Map SignalR hub
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();

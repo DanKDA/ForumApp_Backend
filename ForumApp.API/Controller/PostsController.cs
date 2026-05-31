@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using ForumApp.BusinessLayer.Interfaces;
 using ForumApp.Domain.Models.Post;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ForumApp.API.Controller
@@ -8,18 +10,19 @@ namespace ForumApp.API.Controller
     [Route("api/[controller]")]
     public class PostsController : ControllerBase
     {
-        private readonly IPostActions _postService;
+        private readonly IPostAction _postService;
 
-        public PostsController(IPostActions postService)
+        public PostsController(IPostAction postService)
         {
             _postService = postService;
         }
 
-        // GET api/posts?sortBy=new
+        // GET api/posts?sortBy=new&page=1&pageSize=15
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] string? sortBy, CancellationToken ct)
+        public async Task<IActionResult> GetAll([FromQuery] string? sortBy, [FromQuery] int page = 1, [FromQuery] int pageSize = 15, CancellationToken ct = default)
         {
-            var posts = await _postService.GetAllPostsAsync(sortBy, ct);
+            int? requestingUserId = TryGetCurrentUserId();
+            var posts = await _postService.GetAllPostsAsync(sortBy, page, pageSize, excludePrivateCommunities: true, requestingUserId, ct);
             return Ok(posts);
         }
 
@@ -27,7 +30,8 @@ namespace ForumApp.API.Controller
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id, CancellationToken ct)
         {
-            var post = await _postService.GetPostByIdAsync(id, ct);
+            int? requestingUserId = TryGetCurrentUserId();
+            var post = await _postService.GetPostByIdAsync(id, requestingUserId, ct);
 
             if (post == null)
                 return NotFound($"Post with id {id} was not found.");
@@ -35,31 +39,44 @@ namespace ForumApp.API.Controller
             return Ok(post);
         }
 
-
-
-
+        // GET api/posts/community/{communityId}?sortBy=new&page=1&pageSize=15
         [HttpGet("community/{communityId:int}")]
-        public async Task<IActionResult> GetByCommunity(int communityId, [FromQuery] string? sortBy, CancellationToken ct)
+        public async Task<IActionResult> GetByCommunity(int communityId, [FromQuery] string? sortBy, [FromQuery] int page = 1, [FromQuery] int pageSize = 15, CancellationToken ct = default)
         {
-            var posts = await _postService.GetPostsByCommunityAsync(communityId, sortBy, ct);
+            // Pass userId if present so restricted/private communities can verify membership
+            int? requestingUserId = TryGetCurrentUserId();
+            var posts = await _postService.GetPostsByCommunityAsync(communityId, sortBy, page, pageSize, requestingUserId, ct);
             return Ok(posts);
         }
 
-        // GET api/posts/user/{userId}cd f  
+        // GET api/posts/user/{userId}?page=1&pageSize=15
         [HttpGet("user/{userId:int}")]
-        public async Task<IActionResult> GetByUser(int userId, CancellationToken ct)
+        public async Task<IActionResult> GetByUser(int userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 15, CancellationToken ct = default)
         {
-            var posts = await _postService.GetPostsByUserAsync(userId, ct);
+            var posts = await _postService.GetPostsByUserAsync(userId, page, pageSize, ct);
             return Ok(posts);
         }
 
+        // GET api/posts/search?term=amazing&limit=5
+        [HttpGet("search")]
+        public async Task<IActionResult> Search([FromQuery] string term, [FromQuery] int limit = 5, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(term))
+                return BadRequest("Search term cannot be empty.");
 
+            var posts = await _postService.SearchPostsAsync(term, Math.Min(limit, 20), ct);
+            return Ok(posts);
+        }
+
+        // POST api/posts
+        [Authorize]
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] PostCreateDto postData, [FromQuery] int authorId, CancellationToken ct)
+        public async Task<IActionResult> Create([FromBody] PostCreateDto postData, CancellationToken ct)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            var authorId = GetCurrentUserId();
             var created = await _postService.CreatePostAsync(postData, authorId, ct);
 
             if (created == null)
@@ -68,13 +85,15 @@ namespace ForumApp.API.Controller
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
 
-        // PUT api/posts/{id}?requestingUserId=1
+        // PUT api/posts/{id}
+        [Authorize]
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> Update(int id, [FromBody] PostUpdateDto postData, [FromQuery] int requestingUserId, CancellationToken ct)
+        public async Task<IActionResult> Update(int id, [FromBody] PostUpdateDto postData, CancellationToken ct)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            var requestingUserId = GetCurrentUserId();
             var updated = await _postService.UpdatePostAsync(id, postData, requestingUserId, ct);
 
             if (updated == null)
@@ -83,16 +102,34 @@ namespace ForumApp.API.Controller
             return Ok(updated);
         }
 
-        // DELETE api/posts/{id}?requestingUserId=1
+        // DELETE api/posts/{id}
+        [Authorize]
         [HttpDelete("{id:int}")]
-        public async Task<IActionResult> Delete(int id, [FromQuery] int requestingUserId, CancellationToken ct)
+        public async Task<IActionResult> Delete(int id, CancellationToken ct)
         {
-            var result = await _postService.DeletePostAsync(id, requestingUserId, ct);
+            var requestingUserId = GetCurrentUserId();
+            var result = await _postService.DeletePostAsync(id, requestingUserId, ct: ct);
 
             if (!result.IsSuccess)
                 return BadRequest(result.Message);
 
             return Ok(result.Message);
+        }
+
+        private int GetCurrentUserId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)
+                        ?? User.FindFirst("sub");
+            return int.Parse(claim!.Value);
+        }
+
+        private int? TryGetCurrentUserId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)
+                        ?? User.FindFirst("sub");
+            if (claim == null) return null;
+            if (int.TryParse(claim.Value, out var id)) return id;
+            return null;
         }
     }
 }
