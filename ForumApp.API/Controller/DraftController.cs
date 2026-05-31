@@ -1,34 +1,41 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ForumApp.BusinessLayer.Interfaces;
 using ForumApp.Domain.Models.Draft;
+using System.Security.Claims;
 
 namespace ForumApp.API.Controller
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class DraftController : ControllerBase
     {
-        private readonly IDraftActions _draftService;
+        private readonly IDraftAction _draftService;
 
-        public DraftController(IDraftActions draftService)
+        public DraftController(IDraftAction draftService)
         {
             _draftService = draftService;
         }
 
-        /// <summary>
-        /// Create a new draft
-        /// </summary>
-        /// <param name="draftData">Draft data (PostId)</param>
-        /// <param name="authorId">Author ID (temporarily from query, will come from JWT later)</param>
+        private int? GetCurrentUserId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(claim, out var id) ? id : null;
+        }
+
         [HttpPost]
-        public async Task<IActionResult> CreateDraft([FromBody] CreateDraftRequestDTO draftData, [FromQuery] int authorId)
+        public async Task<IActionResult> CreateDraft([FromBody] CreateDraftRequestDto draftData, CancellationToken ct)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+
             try
             {
-                var result = await _draftService.CreateDraftAsync(draftData, authorId);
+                var result = await _draftService.CreateDraftAsync(draftData, userId.Value, ct);
                 return Ok(result);
             }
             catch (InvalidOperationException ex)
@@ -37,19 +44,16 @@ namespace ForumApp.API.Controller
             }
         }
 
-        /// <summary>
-        /// Update an existing draft
-        /// </summary>
-        /// <param name="draftId">Draft ID</param>
-        /// <param name="draftData">Updated draft data</param>
-        /// <param name="authorId">Author ID</param>
         [HttpPut("{draftId}")]
-        public async Task<IActionResult> UpdateDraft(int draftId, [FromBody] UpdateDraftRequestDTO draftData, [FromQuery] int authorId)
+        public async Task<IActionResult> UpdateDraft(int draftId, [FromBody] UpdateDraftRequestDto draftData, CancellationToken ct)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var result = await _draftService.UpdateDraftAsync(draftData, draftId, authorId);
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+
+            var result = await _draftService.UpdateDraftAsync(draftData, draftId, userId.Value, ct);
 
             if (result == null)
                 return NotFound(new { message = "Draft not found or unauthorized" });
@@ -57,15 +61,13 @@ namespace ForumApp.API.Controller
             return Ok(result);
         }
 
-        /// <summary>
-        /// Get a specific draft by ID (only author can view)
-        /// </summary>
-        /// <param name="draftId">Draft ID</param>
-        /// <param name="authorId">Author ID</param>
         [HttpGet("{draftId}")]
-        public async Task<IActionResult> GetDraftById(int draftId, [FromQuery] int authorId)
+        public async Task<IActionResult> GetDraftById(int draftId, CancellationToken ct)
         {
-            var result = await _draftService.GetDraftByIdAsync(draftId, authorId);
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+
+            var result = await _draftService.GetDraftByIdAsync(draftId, userId.Value, ct);
 
             if (result == null)
                 return NotFound(new { message = "Draft not found or unauthorized" });
@@ -73,26 +75,23 @@ namespace ForumApp.API.Controller
             return Ok(result);
         }
 
-        /// <summary>
-        /// Get all drafts for a specific user
-        /// </summary>
-        /// <param name="authorId">Author ID</param>
         [HttpGet("user")]
-        public async Task<IActionResult> GetAllUserDrafts([FromQuery] int authorId)
+        public async Task<IActionResult> GetAllUserDrafts(CancellationToken ct)
         {
-            var result = await _draftService.GetAllUserDraftsAsync(authorId);
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+
+            var result = await _draftService.GetAllUserDraftsAsync(userId.Value, ct);
             return Ok(result);
         }
 
-        /// <summary>
-        /// Delete a draft (only author can delete)
-        /// </summary>
-        /// <param name="draftId">Draft ID</param>
-        /// <param name="authorId">Author ID</param>
         [HttpDelete("{draftId}")]
-        public async Task<IActionResult> DeleteDraft(int draftId, [FromQuery] int authorId)
+        public async Task<IActionResult> DeleteDraft(int draftId, CancellationToken ct)
         {
-            var result = await _draftService.DeleteDraftAsync(draftId, authorId);
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
+
+            var result = await _draftService.DeleteDraftAsync(draftId, userId.Value, ct);
 
             if (!result.IsSuccess)
                 return BadRequest(result);
